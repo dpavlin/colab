@@ -74,37 +74,61 @@ def format_message(msg):
 
     return turns
 
-def process_session_file(json_file):
+def process_any_file(json_file):
+    """Worker function to extract scrubbed conversations from any known Gemini JSON format."""
+    filename = json_file.name
+    conversations = []
+    
     try:
         with open(json_file, "r") as f:
             data = json.load(f)
-        
-        messages = data.get('messages', [])
-        if not messages: return []
-        
-        # We want to group by full session
-        session_turns = []
-        for msg in messages:
-            session_turns.extend(format_message(msg))
             
-        if not session_turns: return []
-        
-        # Return as a single 'conversation' item
-        return [{"messages": session_turns}]
+        # Strategy A: logs.json (Simple User/Model pairs)
+        if filename == "logs.json":
+            data.sort(key=lambda x: x.get('timestamp', ''))
+            messages = []
+            for msg in data:
+                role = 'user' if msg['type'] == 'user' else 'assistant'
+                messages.append({"role": role, "content": scrub_text(msg['message'])})
+            if messages: conversations.append({"messages": messages})
+
+        # Strategy B: session-*.json (Full Agent Traces - The Best Data)
+        elif filename.startswith("session-") and filename.endswith(".json"):
+            messages = data.get('messages', [])
+            session_turns = []
+            for msg in messages:
+                session_turns.extend(format_message(msg))
+            if session_turns: conversations.append({"messages": session_turns})
+
+        # Strategy C: checkpoint-*.json (Conversation Snapshots)
+        elif filename.startswith("checkpoint-") and filename.endswith(".json"):
+            history = data if isinstance(data, list) else data.get('history', [])
+            messages = []
+            for msg in history:
+                role = msg.get('role', 'user')
+                if role == 'gemini': role = 'assistant'
+                # Extract text from parts
+                text = " ".join([p.get('text', '') for p in msg.get('parts', []) if 'text' in p])
+                if text: messages.append({"role": role, "content": scrub_text(text)})
+            if messages: conversations.append({"messages": messages})
+
+        return conversations
     except Exception as e:
-        print(f"[DEBUG] Error processing {json_file}: {e}")
+        # Silently skip 'role' errors for files that don't match the schema
+        if "role" not in str(e):
+            print(f"[DEBUG] Error processing {json_file}: {e}")
         return []
 
-def run_deep_extraction(directory, output_file):
+def run_comprehensive_extraction(directory, output_file):
     tmp_path = Path(directory).expanduser()
-    json_files = list(tmp_path.rglob("session-*.json"))
-    print(f"[DEBUG] Found {len(json_files)} deep session files. Processing...")
+    json_files = list(tmp_path.rglob("*.json"))
+    print(f"[DEBUG] Found {len(json_files)} total JSON files. Extracting from all sources...")
 
     with multiprocessing.Pool() as pool:
-        results = pool.map(process_session_file, json_files)
+        results = pool.map(process_any_file, json_files)
 
     all_conversations = [conv for sublist in results for conv in sublist]
-    print(f"[DEBUG] Extracted {len(all_conversations)} full multi-turn conversations.")
+    print(f"[DEBUG] Extracted {len(all_conversations)} conversations from all sources.")
 
     with open(output_file, "w") as f:
         for conv in all_conversations:
@@ -112,4 +136,4 @@ def run_deep_extraction(directory, output_file):
     print(f"[DEBUG] Saved to {output_file}")
 
 if __name__ == "__main__":
-    run_deep_extraction("~/.gemini/tmp", "deep_training_data.jsonl")
+    run_comprehensive_extraction("~/.gemini/tmp", "comprehensive_training_data.jsonl")
