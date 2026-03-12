@@ -13,117 +13,103 @@ SECRET_PATTERNS = {
     "IPV4": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
     "EMAIL": re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),
     "SSH_KEY": re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----.*?-----END [A-Z ]+ PRIVATE KEY-----", re.DOTALL),
-    "GENERIC_SECRET": re.compile(r"(?:secret_key|client_secret|client_id)[:=]\s*['\"]([a-zA-Z0-9_-]{16,})['\"]", re.IGNORECASE),
 }
 
 def scrub_text(text):
-    """Redact sensitive information from text using regex."""
-    if not isinstance(text, str):
-        return str(text)
-    
+    if not isinstance(text, str): return str(text)
     scrubbed = text
     for label, pattern in SECRET_PATTERNS.items():
-        # Using a lambda to keep the surrounding context but replace the sensitive part
-        if label in ["API_KEY", "PASSWORD", "GENERIC_SECRET"]:
-            # For these, we want to replace the captured group (the actual secret)
+        if label in ["API_KEY", "PASSWORD"]:
             def redact(match):
-                full_match = match.group(0)
+                full = match.group(0)
                 secret = match.group(1) if len(match.groups()) > 0 else ""
-                if secret:
-                    return full_match.replace(secret, f"<{label}_REDACTED>")
-                return f"<{label}_REDACTED>"
+                return full.replace(secret, f"<{label}_REDACTED>") if secret else f"<{label}_REDACTED>"
             scrubbed = pattern.sub(redact, scrubbed)
         else:
-            # For simpler ones (IPs, Emails), replace the whole match
             scrubbed = pattern.sub(f"<{label}_REDACTED>", scrubbed)
-            
     return scrubbed
 
-def process_file_to_pairs(json_file):
-    """Worker function to extract scrubbed instruction-response pairs."""
-    filename = json_file.name
-    pairs = []
+def format_message(msg):
+    """Format a single message (user, gemini, or tool/system) into a role-based object."""
+    role = msg.get('type') or msg.get('role')
+    if role == 'gemini': role = 'assistant'
     
+    content_parts = []
+    
+    # Handle text content
+    raw_content = msg.get('content', '')
+    if isinstance(raw_content, list):
+        text = " ".join([p.get('text', '') for p in raw_content if 'text' in p])
+    else:
+        text = raw_content
+    
+    if text: content_parts.append(scrub_text(text))
+    
+    # Handle thoughts
+    thoughts = msg.get('thoughts', [])
+    if thoughts:
+        thought_text = "\n".join([f"Thought: {t.get('subject')}: {t.get('description')}" for t in thoughts])
+        content_parts.insert(0, f"<thought>\n{scrub_text(thought_text)}\n</thought>")
+
+    # Handle tool calls and results
+    tool_calls = msg.get('toolCalls', [])
+    turns = []
+    
+    main_content = "\n".join(content_parts)
+    if main_content:
+        turns.append({"role": role, "content": main_content})
+
+    for tc in tool_calls:
+        # The Action
+        call_info = f"CALL: {tc['name']}({json.dumps(tc['args'])})"
+        turns.append({"role": "assistant", "content": f"[TOOL_CALL] {scrub_text(call_info)}"})
+        
+        # The Observation (Result)
+        for res in tc.get('result', []):
+            if 'functionResponse' in res:
+                output = res['functionResponse']['response'].get('output', '')
+                error = res['functionResponse']['response'].get('error', '')
+                final_res = output if output else error
+                turns.append({"role": "system", "content": f"[TOOL_RESULT] {scrub_text(final_res)}"})
+
+    return turns
+
+def process_session_file(json_file):
     try:
         with open(json_file, "r") as f:
             data = json.load(f)
+        
+        messages = data.get('messages', [])
+        if not messages: return []
+        
+        # We want to group by full session
+        session_turns = []
+        for msg in messages:
+            session_turns.extend(format_message(msg))
             
-        # Strategy A: logs.json (Simple pairs)
-        if filename == "logs.json":
-            # Sort by timestamp to preserve order
-            data.sort(key=lambda x: x.get('timestamp', ''))
-            for i in range(len(data) - 1):
-                if data[i]['type'] == 'user' and data[i+1]['type'] == 'model':
-                    pairs.append({
-                        "instruction": scrub_text(data[i]['message']),
-                        "output": scrub_text(data[i+1]['message'])
-                    })
-                    
-        # Strategy B: session-*.json (Full project context)
-        elif filename.startswith("session-") and filename.endswith(".json"):
-            messages = data.get('messages', [])
-            for i in range(len(messages) - 1):
-                if messages[i]['role'] == 'user' and messages[i+1]['role'] == 'model':
-                    # User instruction
-                    instr_parts = [p.get('text', '') for p in messages[i].get('parts', [])]
-                    instruction = " ".join(instr_parts)
-                    
-                    # Model response (can be text + tool calls)
-                    model_parts = []
-                    for p in messages[i+1].get('parts', []):
-                        if 'text' in p:
-                            model_parts.append(p['text'])
-                        if 'functionCall' in p:
-                            model_parts.append(f"[TOOL_CALL: {p['functionCall']['name']}({json.dumps(p['functionCall']['args'])})]")
-                            
-                    output = "\n".join(model_parts)
-                    if instruction.strip() and output.strip():
-                        pairs.append({
-                            "instruction": scrub_text(instruction),
-                            "output": scrub_text(output)
-                        })
-
-        # Strategy C: checkpoint-*.json (History snapshots)
-        elif filename.startswith("checkpoint-") and filename.endswith(".json"):
-            history = data if isinstance(data, list) else data.get('history', [])
-            for i in range(len(history) - 1):
-                if history[i]['role'] == 'user' and history[i+1]['role'] == 'model':
-                    instruction = " ".join([p.get('text', '') for p in history[i].get('parts', [])])
-                    output = " ".join([p.get('text', '') for p in history[i+1].get('parts', [])])
-                    if instruction.strip() and output.strip():
-                        pairs.append({
-                            "instruction": scrub_text(instruction),
-                            "output": scrub_text(output)
-                        })
-
-        return pairs
+        if not session_turns: return []
+        
+        # Return as a single 'conversation' item
+        return [{"messages": session_turns}]
     except Exception as e:
         print(f"[DEBUG] Error processing {json_file}: {e}")
         return []
 
-def run_extraction(directory, output_file):
+def run_deep_extraction(directory, output_file):
     tmp_path = Path(directory).expanduser()
-    if not tmp_path.exists():
-        print(f"[DEBUG] Directory {tmp_path} does not exist.")
-        return
-
-    json_files = list(tmp_path.rglob("*.json"))
-    print(f"[DEBUG] Found {len(json_files)} JSON files. Extracting with {multiprocessing.cpu_count()} CPUs...")
+    json_files = list(tmp_path.rglob("session-*.json"))
+    print(f"[DEBUG] Found {len(json_files)} deep session files. Processing...")
 
     with multiprocessing.Pool() as pool:
-        results = pool.map(process_file_to_pairs, json_files)
+        results = pool.map(process_session_file, json_files)
 
-    # Flatten the results
-    all_pairs = [pair for sublist in results for pair in sublist]
-    print(f"[DEBUG] Successfully extracted {len(all_pairs)} training pairs.")
+    all_conversations = [conv for sublist in results for conv in sublist]
+    print(f"[DEBUG] Extracted {len(all_conversations)} full multi-turn conversations.")
 
-    # Save as JSONL
-    output_path = Path(output_file)
-    with open(output_path, "w") as f:
-        for pair in all_pairs:
-            f.write(json.dumps(pair) + "\n")
-            
-    print(f"[DEBUG] Data saved to {output_path}")
+    with open(output_file, "w") as f:
+        for conv in all_conversations:
+            f.write(json.dumps(conv) + "\n")
+    print(f"[DEBUG] Saved to {output_file}")
 
 if __name__ == "__main__":
-    run_extraction("~/.gemini/tmp", "training_data.jsonl")
+    run_deep_extraction("~/.gemini/tmp", "deep_training_data.jsonl")
