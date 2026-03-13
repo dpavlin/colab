@@ -1,0 +1,27 @@
+# Ollama Modelfile for Fine-Tuned Qwen-2.5 Agent
+# To create: ollama create my-agent -f Modelfile
+
+FROM ./qwen2.5-7b.Q4_K_M.gguf
+
+# Optimization for 32GB RAM
+PARAMETER num_ctx 8192
+PARAMETER temperature 0.7
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "Observation:"
+PARAMETER stop "[TOOL_RESULT]"
+
+# System prompt based on fine-tuning data
+SYSTEM """You are a specialized AI assistant fine-tuned on the user's personal CLI interactions, Git history, and project sessions. You understand the user's specific coding style and environment. Always be concise and follow the agentic patterns learned from the training data. If you need to run a command, use the [TOOL_CALL] syntax."""
+
+# Proper ChatML Template with Multi-turn History Support
+TEMPLATE """{{- if .System }}
+<|im_start|>system
+{{ .System }}<|im_end|>
+{{- end }}
+{{- range .Messages }}
+<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{- end }}
+<|im_start|>assistant
+"""
