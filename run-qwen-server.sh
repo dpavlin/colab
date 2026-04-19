@@ -7,21 +7,15 @@ LLAMA_SERVER="./llama.cpp/build/bin/llama-server"
 # Ensure log directory exists
 mkdir -p logs/slots
 
-echo "Starting Qwen3.6-35B-A3B Server..."
-echo "Logs will be streamed to stdout and saved to logs/server.log"
+echo "Starting Qwen3.6-35B-A3B Server (Recurrent Caching Optimized)..."
 
-# Hardware optimized flags:
-# -ngl 99: Full GPU offload (Iris Xe)
-# -fa on: Flash Attention
-# -t 8: P-Core optimized threading
-# --n-cpu-moe 8: Expert routing optimization
-# -v: Verbose logging
-# --jinja: Use native template engine (default is enabled, but good to be explicit)
-# --metrics: Enable prometheus endpoint
-# --tools: Enable built-in tools for AI agents (read_file, write_file, etc.)
-# --log-file: Redirect logs to file
-# --log-timestamps: Include time in logs
-# --log-prefix: Include prefix in logs
+# Optimized for Gated DeltaNet architecture:
+# -c 32768: Context window
+# --parallel 1: Single-user focus (Crucial for recurrent models)
+# --cache-reuse 256: Proactive prefix matching
+# -ctk q8_0 -ctv q8_0: Quantized cache for faster state-saving
+# -ctx-checkpoints 128: More snapshots for prompt persistence
+# --jinja: Native Qwen template
 
 $LLAMA_SERVER \
   -m "$MODEL_PATH" \
@@ -29,15 +23,21 @@ $LLAMA_SERVER \
   -fa on \
   -t 8 \
   --n-cpu-moe 8 \
-  -c 16384 \
+  -c 32768 \
+  --parallel 1 \
+  --cache-reuse 256 \
+  -ctk q8_0 \
+  -ctv q8_0 \
+  -ctx-checkpoints 128 \
   --port 8085 \
   --host 0.0.0.0 \
-  -v \
+  -lv 4 \
   --jinja \
+  --reasoning-format none \
   --metrics \
   --log-file logs/server.log \
   --log-timestamps \
   --log-prefix \
-  --tools all \
+  --props \
   --slot-save-path ./logs/slots \
   2>&1 | tee logs/server_console.log
