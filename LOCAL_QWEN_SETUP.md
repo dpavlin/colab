@@ -42,6 +42,39 @@ To start an agentic session with tool access (file reading, shell execution, etc
 opencode run -m nuc-qwen36/qwen3.6-35B-A3B "Your prompt here"
 ```
 
+## Prompt Caching & Persistence
+
+To avoid the 5-8 minute prefill delay for large prompts (like the 10k token opencode system prompt), you can persist the model's "recurrent state" to disk.
+
+### 1. Automatic Prompt Caching
+The server is configured to proactively reuse prefix chunks via `--cache-reuse 256`. To force a permanent disk cache for a static system prompt, you can add these flags to the start script:
+```bash
+--prompt-cache logs/system_cache.bin --prompt-cache-all
+```
+
+### 2. Manual Session Persistence (Recommended for opencode)
+You can save and restore the exact state of a conversation slot (e.g., Slot 0) using the REST API. This is nearly instant.
+
+**To Save a Session:**
+```bash
+curl -X POST http://localhost:8085/slots/0?action=save \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "opencode_session.bin"}'
+```
+
+**To Restore a Session:**
+```bash
+curl -X POST http://localhost:8085/slots/0?action=restore \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "opencode_session.bin"}'
+```
+
+*Note: Files are saved in the directory specified by `--slot-save-path` (default: `logs/slots/`).*
+
+### 3. Critical Compatibility Rules
+- **Large Files:** For Qwen 3.6 (DeltaNet), these cache files can be 100MB - 500MB+ per slot.
+- **Strict Matching:** A saved cache can ONLY be restored if the model file, `--ctx-size`, and `--parallel` count are identical to when it was saved.
+
 ## Maintenance
 - **Logs:** Server logs are stored in `logs/server.log`.
 - **KV Cache:** Slot states are saved in `logs/slots/` for improved session continuity.
