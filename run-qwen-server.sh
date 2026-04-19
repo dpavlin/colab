@@ -26,9 +26,9 @@ $LLAMA_SERVER \
   -c 32768 \
   --parallel 1 \
   --cache-reuse 256 \
-  -ctk q8_0 \
-  -ctv q8_0 \
-  -ctx-checkpoints 128 \
+  --cache-type-k q8_0 \
+  --cache-type-v q8_0 \
+  --ctx-checkpoints 128 \
   --port 8085 \
   --host 0.0.0.0 \
   -lv 4 \
