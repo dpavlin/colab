@@ -87,6 +87,7 @@ A suite of tools is available to analyze performance and verify the system state
 - `python3 analyze_llama_logs.py`: Unified ultra-verbose audit of the entire log.
 - `python3 audit_hardware.py`: Deep-dive into GPU offloading and compute spikes.
 - `python3 audit_cache.py`: Qwen-specific analysis of recurrent state caching and branching.
+- `python3 audit_concurrency.py`: Detects overlapping tasks and GPU context-switching interference.
 - `python3 audit_lifecycle.py`: Tracks task ingress, completion, and aborts.
 - `python3 audit_grammar.py`: Quantifies log volume overhead from the template parser.
 
