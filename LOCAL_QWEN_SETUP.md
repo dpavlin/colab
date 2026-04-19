@@ -75,6 +75,21 @@ curl -X POST http://localhost:8085/slots/0?action=restore \
 - **Large Files:** For Qwen 3.6 (DeltaNet), these cache files can be 100MB - 500MB+ per slot.
 - **Strict Matching:** A saved cache can ONLY be restored if the model file, `--ctx-size`, and `--parallel` count are identical to when it was saved.
 
+## Diagnostic Tools
+
+A suite of tools is available to analyze performance and verify the system state.
+
+### 1. Real-time Monitoring
+- `./monitor-server.sh`: Polls the REST API for live slot and metrics status.
+- `./monitor-tokens.sh "Prompt"`: Streams tokens directly to the console for a specific prompt.
+
+### 2. Post-Execution Analysis
+- `python3 analyze_llama_logs.py`: Unified ultra-verbose audit of the entire log.
+- `python3 audit_hardware.py`: Deep-dive into GPU offloading and compute spikes.
+- `python3 audit_cache.py`: Qwen-specific analysis of recurrent state caching and branching.
+- `python3 audit_lifecycle.py`: Tracks task ingress, completion, and aborts.
+- `python3 audit_grammar.py`: Quantifies log volume overhead from the template parser.
+
 ## Maintenance
 - **Logs:** Server logs are stored in `logs/server.log`.
 - **KV Cache:** Slot states are saved in `logs/slots/` for improved session continuity.
