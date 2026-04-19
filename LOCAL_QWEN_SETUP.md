@@ -84,12 +84,11 @@ A suite of tools is available to analyze performance and verify the system state
 - `./monitor-tokens.sh "Prompt"`: Streams tokens directly to the console for a specific prompt.
 
 ### 2. Post-Execution Analysis
-- `python3 analyze_llama_logs.py`: Unified ultra-verbose audit of the entire log.
-- `python3 audit_hardware.py`: Deep-dive into GPU offloading and compute spikes.
-- `python3 audit_cache.py`: Qwen-specific analysis of recurrent state caching and branching.
-- `python3 audit_concurrency.py`: Detects overlapping tasks and GPU context-switching interference.
-- `python3 audit_lifecycle.py`: Tracks task ingress, completion, and aborts.
-- `python3 audit_grammar.py`: Quantifies log volume overhead from the template parser.
+- `python3 audit_hardware.py`: Calculates real-time **Tokens/Sec** for prefill and generation.
+- `python3 audit_cache.py`: Tracks **RAM consumption** and restoration efficiency of recurrent states.
+- `python3 audit_concurrency.py`: Generates a **Visual Heatmap** of slot occupancy and interference.
+- `python3 audit_lifecycle.py`: Precise accounting of task ingress and **wall-clock duration**.
+- `python3 audit_grammar.py`: Categorizes log bloat by **Tool Name** (e.g., read, bash).
 
 ## Maintenance
 - **Logs:** Server logs are stored in `logs/server.log`.
