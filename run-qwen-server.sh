@@ -23,8 +23,8 @@ $LLAMA_SERVER \
   -fa on \
   -t 8 \
   --n-cpu-moe 8 \
-  -c 32768 \
-  --parallel 1 \
+  -c 40960 \
+  --parallel 2 \
   --cache-reuse 256 \
   --cache-type-k q8_0 \
   --cache-type-v q8_0 \
