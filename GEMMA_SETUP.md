@@ -14,12 +14,17 @@ All components are organized in `/home/dpavlin/local-llm/`:
 ```text
 /home/dpavlin/local-llm/
 ├── gemma-install.sh      # Main setup script (dependency checks, compilation, downloads)
-├── gemma-tool.sh         # Bash CLI wrapper for interactive chat and file queries
+├── gemma-tool.sh         # Bash CLI wrapper for Gemma 4 12B model
+├── gemma-e2b.sh          # Bash CLI wrapper for Gemma 4 E2B (2.3B) model
 ├── download_gemma4.py    # Python helper script to fetch GGUFs from Hugging Face
 ├── GEMMA_SETUP.md        # This documentation file
 ├── models/
-│   ├── gemma-4-12b-it-Q4_K_M.gguf      # Main text/unified model weights (7.12 GB)
-│   └── mmproj-F16.gguf                 # Multimodal vision/audio projector (175 MB)
+│   ├── gemma-4-12b-it-Q4_K_M.gguf      # Main 12B unified model weights (7.12 GB)
+│   ├── mmproj-F16.gguf                 # 12B multimodal projector (175 MB)
+│   └── e2b/                            # E2B (2.3B) model directory
+│       ├── gemma-4-E2B-it-qat-UD-Q2_K_XL.gguf  # 2.3B Q2 weights (~2.19 GB)
+│       ├── gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf  # 2.3B Q4 weights (~2.62 GB)
+│       └── mmproj-F16.gguf                     # 2.3B multimodal projector (~986 MB)
 └── llama.cpp/            # Compiled local engine repository
 ```
 
@@ -66,8 +71,24 @@ Provide a WAV recording:
 ./gemma-tool.sh -a /path/to/recording.wav "Transcribe and summarize this recording."
 ```
 
-### D. OpenAI-Compatible API Server
-Serve the model locally:
+### D. Gemma 4 E2B (2.3B) Mobile Edge Model Wrapper (`gemma-e2b.sh`)
+The `gemma-e2b.sh` script is configured for the 2.3B model (optimized for mobile target simulations). It supports selecting different quantizations (`--q2` or `--q4` [default]) and features an optimized default prompt for gas meter OCR.
+
+- Run gas meter OCR with default prompt:
+  ```bash
+  ./gemma-e2b.sh -i /home/dpavlin/Downloads/PXL_20240425_093105901.jpg
+  ```
+- Run custom prompt:
+  ```bash
+  ./gemma-e2b.sh -i /path/to/photo.jpg -p "Transcribe the text in this image."
+  ```
+- Force chat mode with the Q2 quantization:
+  ```bash
+  ./gemma-e2b.sh --q2 --chat
+  ```
+
+### E. OpenAI-Compatible API Server (12B and E2B)
+Serve the 12B model locally:
 ```bash
 /home/dpavlin/local-llm/llama.cpp/build/bin/llama-server \
   -m /home/dpavlin/local-llm/models/gemma-4-12b-it-Q4_K_M.gguf \
@@ -77,4 +98,14 @@ Serve the model locally:
   --jinja \
   --port 8080
 ```
-You can query this server endpoint using OpenAI SDKs or standard base64 multimodal APIs.
+Or serve the 2.3B E2B model locally (matching edge simulations):
+```bash
+/home/dpavlin/local-llm/llama.cpp/build/bin/llama-server \
+  -m /home/dpavlin/local-llm/models/e2b/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf \
+  --mmproj /home/dpavlin/local-llm/models/e2b/mmproj-F16.gguf \
+  -ngl 99 \
+  -t 8 \
+  --jinja \
+  --port 8080
+```
+You can query these endpoints using OpenAI SDKs or standard base64 multimodal requests.
