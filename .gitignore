@@ -1,3 +1,5 @@
 *.gguf
 llama.cpp/
+parakeet.cpp/
 logs/
+
