@@ -7,8 +7,8 @@ set -euo pipefail
 
 # Base Paths
 BASE_DIR="/home/dpavlin/local-llm"
-MODEL_PATH="${BASE_DIR}/models/gemma-4-12B-it-Q4_K_M.gguf"
-MMPROJ_PATH="${BASE_DIR}/models/mmproj-gemma-4-12B-it-Q8_0.gguf"
+MODEL_PATH="${BASE_DIR}/models/gemma-4-12b-it-Q4_K_M.gguf"
+MMPROJ_PATH="${BASE_DIR}/models/mmproj-F16.gguf"
 CLI_PATH="${BASE_DIR}/llama.cpp/build/bin/llama-mtmd-cli"
 
 # Default settings

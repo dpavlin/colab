@@ -18,8 +18,8 @@ All components are organized in `/home/dpavlin/local-llm/`:
 ├── download_gemma4.py    # Python helper script to fetch GGUFs from Hugging Face
 ├── GEMMA_SETUP.md        # This documentation file
 ├── models/
-│   ├── gemma-4-12B-it-Q4_K_M.gguf      # Main text/unified model weights (7.38 GB)
-│   └── mmproj-gemma-4-12B-it-Q8_0.gguf # Multimodal vision/audio projector (159 MB)
+│   ├── gemma-4-12b-it-Q4_K_M.gguf      # Main text/unified model weights (7.12 GB)
+│   └── mmproj-F16.gguf                 # Multimodal vision/audio projector (175 MB)
 └── llama.cpp/            # Compiled local engine repository
 ```
 
@@ -70,8 +70,8 @@ Provide a WAV recording:
 Serve the model locally:
 ```bash
 /home/dpavlin/local-llm/llama.cpp/build/bin/llama-server \
-  -m /home/dpavlin/local-llm/models/gemma-4-12B-it-Q4_K_M.gguf \
-  --mmproj /home/dpavlin/local-llm/models/mmproj-gemma-4-12B-it-Q8_0.gguf \
+  -m /home/dpavlin/local-llm/models/gemma-4-12b-it-Q4_K_M.gguf \
+  --mmproj /home/dpavlin/local-llm/models/mmproj-F16.gguf \
   -ngl 99 \
   -t 16 \
   --jinja \

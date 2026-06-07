@@ -2,14 +2,14 @@ import os
 import sys
 from huggingface_hub import hf_hub_download
 
-repo_id = "ggml-org/gemma-4-12B-it-GGUF"
+repo_id = "unsloth/gemma-4-12b-it-GGUF"
 local_dir = "/home/dpavlin/local-llm/models"
 
 os.makedirs(local_dir, exist_ok=True)
 
 files_to_download = [
-    "gemma-4-12B-it-Q4_K_M.gguf",
-    "mmproj-gemma-4-12B-it-Q8_0.gguf"
+    "gemma-4-12b-it-Q4_K_M.gguf",
+    "mmproj-F16.gguf"
 ]
 
 print(f"[DEBUG] Hugging Face Repo: {repo_id}")
